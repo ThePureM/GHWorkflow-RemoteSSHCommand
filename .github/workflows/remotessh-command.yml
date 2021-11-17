@@ -1,0 +1,80 @@
+name: Remote SSH Command
+
+on:
+  repository_dispatch:
+    types: [remotessh-command]
+
+jobs:
+  remotessh_command:
+    name: Remote SSH command
+    runs-on: ubuntu-latest
+    env:
+      ssh_host: ${{ secrets.SSH_HOST }}
+      ssh_username: github
+      ssh_key: ${{ secrets.SSH_KEY }}
+      ssh_passphrase: ${{ secrets.SSH_PASSPHRASE }}
+      ssh_scriptstop: true
+      ssh_script: ls -la
+    steps:
+      - name: Setup Environment Variables
+        run: |
+          ## Change it with defined client payload
+          
+          ghw_password="${{ github.event.client_payload.ghw_password }}"
+          if [[ -n "$ghw_password" ]]; then
+              echo "::add-mask::$ghw_password"
+          fi
+          if [[ "$ghw_password" != "${{ secrets.GHW_PASSWORD }}" ]]; then
+              echo "ssh_host=" >> $GITHUB_ENV
+              echo "ssh_key=" >> $GITHUB_ENV
+              echo "ssh_passphrase=" >> $GITHUB_ENV
+          fi
+          
+          # SSH HOST
+          ssh_host="${{ github.event.client_payload.ssh_host }}"
+          if [[ -n "$ssh_host" ]]; then
+              echo "::add-mask::$ssh_host"
+              echo "ssh_host=$ssh_host" >> $GITHUB_ENV
+          fi
+          # SSH USERNAME
+          ssh_username="${{ github.event.client_payload.ssh_username }}"
+          if [[ -n "$ssh_username" ]]; then
+              echo "::add-mask::$ssh_username"
+              echo "ssh_username=$ssh_username" >> $GITHUB_ENV
+          fi
+          # SSH KEY
+          ssh_key="${{ github.event.client_payload.ssh_key }}"
+          if [[ -n "$ssh_key" ]]; then
+              echo "::add-mask::$ssh_key"
+              echo 'ssh_key<<EOF' >> $GITHUB_ENV
+              echo "$ssh_key" >> $GITHUB_ENV
+              echo 'EOF' >> $GITHUB_ENV
+          fi
+          # SSH PASSPHRASE
+          ssh_passphrase="${{ github.event.client_payload.ssh_passphrase }}"
+          if [[ -n "$ssh_passphrase" ]]; then
+              echo "::add-mask::$ssh_passphrase"
+              echo "ssh_passphrase=$ssh_passphrase" >> $GITHUB_ENV
+          fi
+          # SCRIPT STOP
+          ssh_scriptstop="${{ github.event.client_payload.ssh_scriptstop }}"
+          if [[ -n "$ssh_scriptstop" ]]; then
+              echo "ssh_scriptstop=$ssh_scriptstop" >> $GITHUB_ENV
+          fi
+          # SCRIPT
+          ssh_script="${{ github.event.client_payload.ssh_script }}"
+          if [[ -n "$ssh_script" ]]; then
+              echo 'ssh_script<<EOF' >> $GITHUB_ENV
+              echo "$ssh_script" >> $GITHUB_ENV
+              echo 'EOF' >> $GITHUB_ENV
+          fi
+      - name: Run Remote SSH Command
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.ssh_host }}
+          username: ${{ env.ssh_username }}
+          key: ${{ env.ssh_key }}
+          passphrase: ${{ env.ssh_passphrase }}
+          script_stop: ${{ env.ssh_scriptstop }}
+          script: |
+            ${{ env.ssh_script }}
