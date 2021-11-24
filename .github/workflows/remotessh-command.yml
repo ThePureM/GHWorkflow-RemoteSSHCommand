@@ -4,6 +4,10 @@ on:
   repository_dispatch:
     types: [remotessh-command]
 
+concurrency:
+  group: "${{ github.event.client_payload.ssh_script }}"
+  cancel-in-progress: true
+
 jobs:
   remotessh_command:
     name: Remote SSH command
@@ -16,6 +20,8 @@ jobs:
       ssh_scriptstop: true
       ssh_script: ls -la
     steps:
+      - name: 3 Minutes Sleep
+        run: sleep 3m
       - name: Setup Environment Variables
         run: |
           ## Change it with defined client payload
