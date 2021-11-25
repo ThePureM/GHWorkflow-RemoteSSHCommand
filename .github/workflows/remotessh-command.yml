@@ -15,19 +15,16 @@ jobs:
     env:
       ssh_host: ${{ github.event.client_payload.ssh_host }}
       ssh_username: ${{ github.event.client_payload.ssh_username }}
-      ssh_key: ${{ github.event.client_payload.ssh_key }}
       ssh_passphrase: ${{ github.event.client_payload.ssh_passphrase }}
       ssh_scriptstop: ${{ github.event.client_payload.ssh_scriptstop }}
-      ssh_script: ${{ github.event.client_payload.ssh_script }}
-      ghw_password: ${{ github.event.client_payload.ghw_password }}
     steps:
       - name: 3 Minutes Sleep
         run: sleep 3m
-      - name: Setup Environment Variables
+      - name: Setup Environment Variables 1
         run: |
-          ## Hide client payload and setup internal use
+          ## Change it with client payload and hide sensitive information
           
-          ghw_password="${{ env.ghw_password }}"
+          ghw_password="${{ github.event.client_payload.ghw_password }}"
           if [[ -n "$ghw_password" ]]; then
               echo "::add-mask::$ghw_password"
           fi
@@ -42,9 +39,6 @@ jobs:
               
               ssh_passphrase="${{ secrets.SSH_PASSPHRASE }}"
               echo "ssh_passphrase=$ssh_passphrase" >> $GITHUB_ENV
-              
-              ssh_script="${{ env.ssh_script }}"
-              while read -r line ; do if [[ -n "$line" ]] ; then echo "::add-mask::$line" ; fi ; done <<< "$ssh_script"
           fi
           
           # SSH HOST
@@ -59,11 +53,6 @@ jobs:
           else
               echo "ssh_username=github" >> $GITHUB_ENV
           fi
-          # SSH KEY
-          ssh_key="${{ env.ssh_key }}"
-          if [[ -n "$ssh_key" ]]; then
-              while read -r line ; do if [[ -n "$line" ]] ; then echo "::add-mask::$line" ; fi ; done <<< "$ssh_key"
-          fi
           # SSH PASSPHRASE
           ssh_passphrase="${{ env.ssh_passphrase }}"
           if [[ -n "$ssh_passphrase" ]]; then
@@ -73,9 +62,48 @@ jobs:
           if [[ -z "${{ env.ssh_scriptstop }}" ]]; then
               echo "ssh_scriptstop=true" >> $GITHUB_ENV
           fi
+      - name: Setup Environment Variables 2
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const { ghw_password } = process.env
+            const client_ghwpassword = context.payload.client_payload.ghw_password
+            if ( client_ghwpassword == ghw_password ) {
+                const ssh_script = context.payload.client_payload.ssh_script
+                const arr_sshscript = ssh_script.split(/[\r\n]+/)
+                for ( var i = 0; i < arr_sshscript.length; i++ ) {
+                    if ( !!arr_sshscript[i] ) {
+                        core.setSecret( arr_sshscript[i] )
+                    }
+                }
+            } else {
+                const ssh_key = context.payload.client_payload.ssh_key
+                const arr_sshkey = ssh_key.split(/[\r\n]+/)
+                for ( var i = 0; i < arr_sshkey.length; i++ ) {
+                    if ( !!arr_sshkey[i] ) {
+                        core.setSecret( arr_sshkey[i] )
+                    }
+                }
+            }
+        env:
+          ghw_password: ${{ secrets.GHW_PASSWORD }}
+      - name: Setup Environment Variables 3
+        run: |
+          ## Change it with client payload and hide sensitive information
+          
+          # SSH KEY
+          ssh_key="${{ github.event.client_payload.ssh_key }}"
+          if [[ -n "$ssh_key" ]]; then
+              echo 'ssh_key<<EOF' >> $GITHUB_ENV
+              echo "$ssh_key" >> $GITHUB_ENV
+              echo 'EOF' >> $GITHUB_ENV
+          fi
           # SCRIPT
-          if [[ -z "${{ env.ssh_script }}" ]]; then
-              echo "ssh_script=ls -la" >> $GITHUB_ENV
+          ssh_script="${{ github.event.client_payload.ssh_script }}"
+          if [[ -n "$ssh_script" ]]; then
+              echo 'ssh_script<<EOF' >> $GITHUB_ENV
+              echo "$ssh_script" >> $GITHUB_ENV
+              echo 'EOF' >> $GITHUB_ENV
           fi
       - name: Run Remote SSH Command
         uses: appleboy/ssh-action@master
