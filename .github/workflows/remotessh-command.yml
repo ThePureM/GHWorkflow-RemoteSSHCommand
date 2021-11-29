@@ -5,7 +5,7 @@ on:
     types: [remotessh-command]
 
 concurrency:
-  group: "${{ github.event.client_payload.ssh_script }}"
+  group: "${{ toJSON(github.event.client_payload.ssh_script) }}"
   cancel-in-progress: true
 
 jobs:
@@ -17,12 +17,13 @@ jobs:
       ssh_username: ${{ github.event.client_payload.ssh_username }}
       ssh_passphrase: ${{ github.event.client_payload.ssh_passphrase }}
       ssh_scriptstop: ${{ github.event.client_payload.ssh_scriptstop }}
+      ghw_password: ${{ github.event.client_payload.ghw_password }}
     steps:
       - name: Setup Environment Variables 1
         run: |
           ## Change it with client payload and hide sensitive information
           
-          ghw_password="${{ github.event.client_payload.ghw_password }}"
+          ghw_password="${{ env.ghw_password }}"
           if [[ -n "$ghw_password" ]]; then
               echo "::add-mask::$ghw_password"
           fi
